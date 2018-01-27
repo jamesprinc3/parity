@@ -13,7 +13,6 @@ pub struct RuntimeContext {
 struct Runtime<'a> {
 	gas_counter: u64,
 	gas_limit: u64,
-	dynamic_top: u32,
 	ext: &'a mut vm::Ext,
 	context: RuntimeContext,
 	memory: MemoryRef,
@@ -54,8 +53,18 @@ pub enum Error {
 	Panic(String),
 }
 
+impl From<InterpreterError> for Error {
+	fn from(interpreter_err: InterpreterError) -> Self {
+		match interpreter_err {
+			InterpreterError::Value(_) => Error::InvalidSyscall,
+			InterpreterError::Memory(_) => Error::MemoryAccessViolation,
+			_ => Error::Other,
+		}
+	}
+}
+
 impl ::std::fmt::Display for Error {
-	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+	fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
 		match *self {
 			Error::StorageReadError => write!(f, "Storage read error"),
 			Error::StorageUpdateError => write!(f, "Storage update error"),
@@ -76,29 +85,28 @@ impl ::std::fmt::Display for Error {
 	}
 }
 
+type Result<T> = ::std::result::Result<T, Error>;
+
 impl<'a> Runtime<'a> {
 	/// New runtime for wasm contract with specified params
 	pub fn with_params(
 		ext: &mut vm::Ext,
 		memory: MemoryRef,
-		stack_space: u32,
 		gas_limit: u64,
 		context: RuntimeContext,
 	) -> Runtime {
 		Runtime {
 			gas_counter: 0,
 			gas_limit: gas_limit,
-			dynamic_top: stack_space,
 			memory: memory,
 			ext: ext,
 			context: context,
 		}
 	}
 
-	fn h256_at(&self, ptr: u32) -> Result<H256, Error> {
+	fn h256_at(&self, ptr: u32) -> Result<H256> {
 		let mut buf = [0u8; 32];
-		self.memory.get_into(ptr, &mut buf[..])
-			.map_err(|e| Error::MemoryAccessViolation);
+		self.memory.get_into(ptr, &mut buf[..])?;
 
 		Ok(H256::from(&buf[..]))
 	}
@@ -115,7 +123,7 @@ impl<'a> Runtime<'a> {
 	}
 
 	/// Charge gas according to closure
-	pub fn charge<F>(&mut self, f: F) -> Result<(), Error>
+	pub fn charge<F>(&mut self, f: F) -> Result<()>
 		where F: FnOnce(&vm::Schedule) -> u64
 	{
 		let amount = f(self.ext.schedule());
@@ -127,18 +135,16 @@ impl<'a> Runtime<'a> {
 	}
 
 	/// Read from the storage to wasm memory
-	pub fn storage_read(&mut self, args: RuntimeArgs) -> Result<(), Error>
+	pub fn storage_read(&mut self, args: RuntimeArgs) -> Result<()>
 	{
-		let key = self.h256_at(args.nth(0).map_err(|_| Error::InvalidSyscall)?)
-			.map_err(|_| Error::MemoryAccessViolation)?;
-		let val_ptr: u32 = args.nth(1).map_err(|_| Error::InvalidSyscall)?;
+		let key = self.h256_at(args.nth(0)?)?;
+		let val_ptr: u32 = args.nth(1)?;
 
 		let val = self.ext.storage_at(&key).map_err(|_| Error::StorageReadError)?;
 
 		self.charge(|schedule| schedule.sload_gas as u64)?;
 
-		self.memory.set(val_ptr as u32, &*val)
-			.map_err(|_| Error::MemoryAccessViolation)?;
+		self.memory.set(val_ptr as u32, &*val)?;
 
 		Ok(())
 	}
