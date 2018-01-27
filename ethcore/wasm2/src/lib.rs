@@ -26,7 +26,7 @@ extern crate vm;
 extern crate wasm_utils;
 extern crate wasmi;
 
-// mod runtime;
+mod runtime;
 // mod ptr;
 // mod result;
 // #[cfg(test)]
