@@ -39,6 +39,8 @@ use parity_wasm::elements;
 use vm::{GasLeft, ReturnData, ActionParams};
 use wasmi::Error as InterpreterError;
 
+use runtime::{Runtime, RuntimeContext};
+
 const DEFAULT_RESULT_BUFFER: usize = 1024;
 
 /// Wrapped interpreter error
@@ -83,17 +85,32 @@ impl vm::Vm for WasmInterpreter {
 		let module: elements::Module = parity_wasm::deserialize_buffer(&*code)
 			.map_err(|err| vm::Error::Wasm(format!("Error deserializing contract code ({:?})", err)))?;
 
-		let loaded_module = wasmi::load_from_module(module)
+		let loaded_module = wasmi::Module::from_parity_wasm_module(module)
 			.map_err(|e| vm::Error::from(Error(e)))?;
+
+		let instantiation_resolover = env::ImportResolver::with_limit(64);
 
 		let module_instance = wasmi::ModuleInstance::new(
 			&loaded_module,
-			&wasmi::ImportsBuilder::new().with_resolver("env", &env::ImportResolver)
+			&wasmi::ImportsBuilder::new().with_resolver("env", &instantiation_resolover)
 		).map_err(|e| vm::Error::from(Error(e)))?;
 
 		if params.gas > ::std::u64::MAX.into() {
 			return Err(vm::Error::Wasm("Wasm interpreter cannot run contracts with gas >= 2^64".to_owned()));
 		}
+
+		let mut runtime = Runtime::with_params(
+			ext,
+			instantiation_resolover.memory_ref().map_err(|e| vm::Error::from(Error(e)))?,
+			params.gas.low_u64(),
+			RuntimeContext {
+				address: params.address,
+				sender: params.sender,
+				origin: params.origin,
+				code_address: params.code_address,
+				value: params.value.value(),
+			},
+		);
 
 		// let mut runtime = Runtime::with_params(
 		// 	ext,

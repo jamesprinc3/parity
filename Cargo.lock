@@ -3502,7 +3502,7 @@ dependencies = [
 [[package]]
 name = "wasmi"
 version = "0.0.0"
-source = "git+https://github.com/pepyakin/wasmi#aa4c8fe3bb981099c1758c0c2564f2fa1261ce4a"
+source = "git+https://github.com/pepyakin/wasmi#551c99273042deaad869c17798060e2212deacab"
 dependencies = [
  "byteorder 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-wasm 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",

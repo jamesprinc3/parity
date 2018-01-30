@@ -1,4 +1,8 @@
-use wasmi::{self, Signature, Error, FuncRef, FuncInstance};
+use std::cell::RefCell;
+use wasmi::{
+	self, Signature, Error, FuncRef, FuncInstance, MemoryDescriptor,
+	MemoryRef, MemoryInstance,
+};
 
 pub mod ids {
 	pub const STORAGE_READ_FUNC: usize = 10;
@@ -26,7 +30,33 @@ fn host(signature: signatures::StaticSignature, idx: usize) -> FuncRef {
 	FuncInstance::alloc_host(signature.into(), idx)
 }
 
-pub struct ImportResolver;
+#[derive(Default)]
+pub struct ImportResolver {
+	max_memory: u32,
+	memory: RefCell<Option<MemoryRef>>,
+}
+
+impl ImportResolver {
+	pub fn with_limit(max_memory: u32) -> ImportResolver {
+		ImportResolver {
+			max_memory: max_memory,
+			.. Default::default()
+		}
+	}
+
+	pub fn memory_ref(&self) -> Result<MemoryRef, Error> {
+		{
+			let mut mem_ref = self.memory.borrow_mut();
+			if mem_ref.is_none() { *mem_ref = Some(MemoryInstance::alloc(0, Some(0))?); }
+		}
+
+		Ok(self.memory.borrow().clone().expect("it is either existed or was created as (0, 0) above; qed"))
+	}
+
+	pub fn memory_size(&self) -> Result<u32, Error> {
+		Ok(self.memory_ref()?.size())
+	}
+}
 
 impl wasmi::ModuleImportResolver for ImportResolver {
 	fn resolve_func(&self, field_name: &str, signature: &Signature) -> Result<FuncRef, Error> {
@@ -40,5 +70,25 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 		};
 
 		Ok(func_ref)
+	}
+
+	fn resolve_memory(
+		&self,
+		field_name: &str,
+		descriptor: &MemoryDescriptor,
+	) -> Result<MemoryRef, Error> {
+		if field_name == "memory" {
+			if descriptor.initial() >= self.max_memory ||
+				(descriptor.maximum().map_or(false, |m| m < descriptor.initial() || m > self.max_memory))
+			{
+				Err(Error::Instantiation("Module requested too much memory".to_owned()))
+			} else {
+				let mem = MemoryInstance::alloc(descriptor.initial(), descriptor.maximum())?;
+				*self.memory.borrow_mut() = Some(mem.clone());
+				Ok(mem)
+			}
+		} else {
+			Err(Error::Instantiation("Memory imported under unknown name".to_owned()))
+		}
 	}
 }

@@ -10,7 +10,7 @@ pub struct RuntimeContext {
 	pub value: U256,
 }
 
-struct Runtime<'a> {
+pub struct Runtime<'a> {
 	gas_counter: u64,
 	gas_limit: u64,
 	ext: &'a mut vm::Ext,
