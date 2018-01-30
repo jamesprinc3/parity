@@ -3473,7 +3473,7 @@ dependencies = [
 [[package]]
 name = "wasm-utils"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/wasm-utils#3d59f7ca0661317bc66894a26b2a5a319fa5d229"
+source = "git+https://github.com/paritytech/wasm-utils#f2eaaf391e376edd7a643688d838068769883536"
 dependencies = [
  "byteorder 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.29.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3481,7 +3481,7 @@ dependencies = [
  "glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "parity-wasm 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-wasm 0.23.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
