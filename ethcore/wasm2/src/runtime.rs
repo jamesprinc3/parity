@@ -148,4 +148,8 @@ impl<'a> Runtime<'a> {
 
 		Ok(())
 	}
+
+	pub fn schedule(&self) -> &vm::Schedule {
+		self.ext.schedule()
+	}
 }

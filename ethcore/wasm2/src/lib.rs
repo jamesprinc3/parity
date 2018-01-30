@@ -73,6 +73,12 @@ impl WasmInterpreter {
 	}
 }
 
+impl From<runtime::Error> for vm::Error {
+	fn from(e: runtime::Error) -> Self {
+		vm::Error::Wasm(format!("Wasm runtime error: {:?}", e))
+	}
+}
+
 impl vm::Vm for WasmInterpreter {
 
 	fn exec(&mut self, params: ActionParams, ext: &mut vm::Ext) -> vm::Result<GasLeft> {
@@ -99,6 +105,10 @@ impl vm::Vm for WasmInterpreter {
 			return Err(vm::Error::Wasm("Wasm interpreter cannot run contracts with gas >= 2^64".to_owned()));
 		}
 
+		let initial_memory = instantiation_resolover.memory_size()
+			.map_err(Error)?;
+		trace!(target: "wasm", "Contract requested {:?} pages of initial memory", initial_memory);
+
 		let mut runtime = Runtime::with_params(
 			ext,
 			instantiation_resolover.memory_ref().map_err(|e| vm::Error::from(Error(e)))?,
@@ -112,20 +122,13 @@ impl vm::Vm for WasmInterpreter {
 			},
 		);
 
-		// let mut runtime = Runtime::with_params(
-		// 	ext,
-		// 	env_memory,
-		// 	DEFAULT_STACK_SPACE,
-		// 	params.gas.low_u64(),
-		// 	RuntimeContext {
-		// 		address: params.address,
-		// 		sender: params.sender,
-		// 		origin: params.origin,
-		// 		code_address: params.code_address,
-		// 		value: params.value.value(),
-		// 	},
-		// 	&self.program,
-		// );
+		// cannot overflow if static_region < 2^16,
+		// initial_memory <- 0..2^32
+		// total_charge <- static_region * 2^32 * 2^16
+		// total_charge should be < 2^64
+		// qed
+		assert!(runtime.schedule().wasm.static_region < 2^16);
+		runtime.charge(|s| initial_memory as u64 * 64 * 1024 * s.wasm.static_region as u64)?;
 
 		// let (mut cursor, data_position) = match params.params_type {
 		// 	vm::ParamsType::Embedded => {
