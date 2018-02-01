@@ -29,8 +29,8 @@ extern crate wasmi;
 mod runtime;
 // mod ptr;
 // mod result;
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
 mod env;
 // mod panic_payload;
 mod parser;
@@ -42,7 +42,9 @@ use wasmi::Error as InterpreterError;
 
 use runtime::{Runtime, RuntimeContext};
 
-const DEFAULT_RESULT_BUFFER: usize = 1024;
+use ethereum_types::U256;
+
+const MEMORY_STIPEND: u32 = 17;
 
 /// Wrapped interpreter error
 #[derive(Debug)]
@@ -61,18 +63,7 @@ impl From<Error> for vm::Error {
 }
 
 /// Wasm interpreter instance
-pub struct WasmInterpreter {
-	result: Vec<u8>,
-}
-
-impl WasmInterpreter {
-	/// New wasm interpreter instance
-	pub fn new() -> Result<WasmInterpreter, Error> {
-		Ok(WasmInterpreter {
-			result: Vec::with_capacity(DEFAULT_RESULT_BUFFER),
-		})
-	}
-}
+pub struct WasmInterpreter;
 
 impl From<runtime::Error> for vm::Error {
 	fn from(e: runtime::Error) -> Self {
@@ -98,7 +89,8 @@ impl vm::Vm for WasmInterpreter {
 			return Err(vm::Error::Wasm("Wasm interpreter cannot run contracts with gas >= 2^64".to_owned()));
 		}
 
-		let initial_memory = instantiation_resolover.memory_size().map_err(Error)?;
+		let initial_memory = instantiation_resolover.memory_size().map_err(Error)?
+			.saturating_sub(MEMORY_STIPEND);
 		trace!(target: "wasm", "Contract requested {:?} pages of initial memory", initial_memory);
 
 		let mut runtime = Runtime::with_params(
@@ -123,47 +115,25 @@ impl vm::Vm for WasmInterpreter {
 		assert!(runtime.schedule().wasm.static_region < 2^16);
 		runtime.charge(|s| initial_memory as u64 * 64 * 1024 * s.wasm.static_region as u64)?;
 
-		// {
-		// 	let execution_params = runtime.execution_params()
-		// 		.add_argument(interpreter::RuntimeValue::I32(d_ptr.as_raw() as i32));
+		let module_instance = module_instance.run_start(&mut runtime).map_err(Error)?;
 
-		// 	let module_instance = self.program.add_module("contract", contract_module, Some(&execution_params.externals))
-		// 		.map_err(|err| {
-		// 			trace!(target: "wasm", "Error adding contract module: {:?}", err);
-		// 			vm::Error::from(Error(err))
-		// 		})?;
+		module_instance.invoke_export("call", &[], &mut runtime).map_err(Error)?;
 
-		// 	match module_instance.execute_export("_call", execution_params) {
-		// 		Ok(_) => { },
-		// 		Err(interpreter::Error::User(UserTrap::Suicide)) => { },
-		// 		Err(err) => {
-		// 			trace!(target: "wasm", "Error executing contract: {:?}", err);
-		// 			return Err(vm::Error::from(Error(err)))
-		// 		}
-		// 	}
-		// }
-
-		// let result = result::WasmResult::new(d_ptr);
-		// if result.peek_empty(&*runtime.memory()).map_err(|e| Error(e))? {
-		// 	trace!(target: "wasm", "Contract execution result is empty.");
-		// 	Ok(GasLeft::Known(runtime.gas_left()?.into()))
-		// } else {
-		// 	self.result.clear();
-		// 	// todo: use memory views to avoid copy
-		// 	self.result.extend(result.pop(&*runtime.memory()).map_err(|e| Error(e.into()))?);
-		// 	let len = self.result.len();
-		// 	Ok(GasLeft::NeedsReturn {
-		// 		gas_left: runtime.gas_left().map_err(|e| Error(e.into()))?.into(),
-		// 		data: ReturnData::new(
-		// 			::std::mem::replace(&mut self.result, Vec::with_capacity(DEFAULT_RESULT_BUFFER)),
-		// 			0,
-		// 			len,
-		// 		),
-		// 		apply_state: true,
-		// 	})
-		// }
-
-		Ok(GasLeft::Known(0.into()))
-
+		if runtime.result().is_empty() {
+			trace!(target: "wasm", "Contract execution result is empty.");
+			Ok(GasLeft::Known(runtime.gas_left()?.into()))
+		} else {
+			let len = runtime.result().len();
+			let gas_left: U256 = runtime.gas_left()?.into();
+			Ok(GasLeft::NeedsReturn {
+				gas_left: gas_left,
+				data: ReturnData::new(
+					runtime.dissolve(),
+					0,
+					len,
+				),
+				apply_state: true,
+			})
+		}
 	}
 }

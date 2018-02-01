@@ -168,6 +168,31 @@ impl<'a> Runtime<'a> {
 
 		Ok(())
 	}
+
+	pub fn result(&self) -> &[u8] {
+		&self.result
+	}
+
+	pub fn dissolve(self) -> Vec<u8> {
+		self.result
+	}
+
+	/// Query current gas left for execution
+	pub fn gas_left(&self) -> Result<u64> {
+		if self.gas_counter > self.gas_limit { return Err(Error::InvalidGasState); }
+		Ok(self.gas_limit - self.gas_counter)
+	}
+
+	/// Report gas cost with the params passed in wasm stack
+	fn gas(&mut self, args: RuntimeArgs) -> Result<()> {
+		trace!(target: "wasm", "charge gas {}", args.nth::<u32>(0)?);
+		let amount: u32 = args.nth(0)?;
+		if self.charge_gas(amount as u64) {
+			Ok(())
+		} else {
+			Err(Error::GasLimit.into())
+		}
+	}
 }
 
 mod ext_impl {
@@ -188,6 +213,7 @@ mod ext_impl {
 			match index {
 				STORAGE_READ_FUNC => void!(self.storage_read(args)),
 				RET_FUNC => void!(self.ret(args)),
+				GAS_FUNC => void!(self.gas(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}
