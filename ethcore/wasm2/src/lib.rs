@@ -105,6 +105,7 @@ impl vm::Vm for WasmInterpreter {
 			ext,
 			instantiation_resolover.memory_ref().map_err(Error)?,
 			params.gas.low_u64(),
+			data.to_vec(),
 			RuntimeContext {
 				address: params.address,
 				sender: params.sender,

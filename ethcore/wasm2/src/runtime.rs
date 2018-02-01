@@ -16,6 +16,7 @@ pub struct Runtime<'a> {
 	ext: &'a mut vm::Ext,
 	context: RuntimeContext,
 	memory: MemoryRef,
+	args: Vec<u8>,
 }
 
 /// User trap in native code
@@ -93,6 +94,7 @@ impl<'a> Runtime<'a> {
 		ext: &mut vm::Ext,
 		memory: MemoryRef,
 		gas_limit: u64,
+		args: Vec<u8>,
 		context: RuntimeContext,
 	) -> Runtime {
 		Runtime {
@@ -101,6 +103,7 @@ impl<'a> Runtime<'a> {
 			memory: memory,
 			ext: ext,
 			context: context,
+			args: args,
 		}
 	}
 

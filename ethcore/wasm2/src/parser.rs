@@ -15,7 +15,6 @@ fn gas_rules(schedule: &vm::Schedule) -> rules::Set {
 }
 
 /// Splits payload to code and data according to params.params_type
-/// Panics if params.code is None!
 pub fn payload<'a>(params: &'a vm::ActionParams, schedule: &vm::Schedule)
 	-> Result<(elements::Module, &'a [u8]), vm::Error>
 {
