@@ -159,6 +159,15 @@ impl<'a> Runtime<'a> {
 	pub fn schedule(&self) -> &vm::Schedule {
 		self.ext.schedule()
 	}
+
+	pub fn ret(&mut self, args: RuntimeArgs) -> Result<()> {
+		let ptr: u32 = args.nth(0)?;
+		let len: u32 = args.nth(1)?;
+
+		self.result = self.memory.get(ptr, len as usize)?;
+
+		Ok(())
+	}
 }
 
 mod ext_impl {
@@ -178,6 +187,7 @@ mod ext_impl {
 		) -> Result<Option<RuntimeValue>, Error> {
 			match index {
 				STORAGE_READ_FUNC => void!(self.storage_read(args)),
+				RET_FUNC => void!(self.ret(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}
