@@ -17,6 +17,7 @@ pub struct Runtime<'a> {
 	context: RuntimeContext,
 	memory: MemoryRef,
 	args: Vec<u8>,
+	result: Vec<u8>,
 }
 
 /// User trap in native code
@@ -53,6 +54,8 @@ pub enum Error {
 	/// Panic with message
 	Panic(String),
 }
+
+impl wasmi::HostError for Error { }
 
 impl From<InterpreterError> for Error {
 	fn from(interpreter_err: InterpreterError) -> Self {
@@ -104,6 +107,7 @@ impl<'a> Runtime<'a> {
 			ext: ext,
 			context: context,
 			args: args,
+			result: Vec::new(),
 		}
 	}
 
@@ -154,5 +158,28 @@ impl<'a> Runtime<'a> {
 
 	pub fn schedule(&self) -> &vm::Schedule {
 		self.ext.schedule()
+	}
+}
+
+mod ext_impl {
+
+	use wasmi::{Externals, RuntimeArgs, RuntimeValue, Error};
+	use env::ids::*;
+
+	macro_rules! void {
+		{ $e: expr } => { { $e?; Ok(None) } }
+	}
+
+	impl<'a> Externals for super::Runtime<'a> {
+		fn invoke_index(
+			&mut self,
+			index: usize,
+			args: RuntimeArgs,
+		) -> Result<Option<RuntimeValue>, Error> {
+			match index {
+				STORAGE_READ_FUNC => void!(self.storage_read(args)),
+				_ => panic!("env module doesn't provide function at index {}", index),
+			}
+		}
 	}
 }
