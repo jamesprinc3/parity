@@ -156,6 +156,21 @@ impl<'a> Runtime<'a> {
 		}
 	}
 
+	pub fn overflow_charge<F>(&mut self, f: F) -> Result<()>
+		where F: FnOnce(&vm::Schedule) -> Option<u64>
+	{
+		let amount = match f(self.ext.schedule()) {
+			Some(amount) => amount,
+			None => { return Err(Error::GasLimit.into()); }
+		};
+
+		if !self.charge_gas(amount as u64) {
+			Err(Error::GasLimit.into())
+		} else {
+			Ok(())
+		}
+	}
+
 	/// Read from the storage to wasm memory
 	pub fn storage_read(&mut self, args: RuntimeArgs) -> Result<()>
 	{
@@ -224,7 +239,7 @@ impl<'a> Runtime<'a> {
 		}
 	}
 
-	fn input_legnth(&mut self, args: RuntimeArgs) -> RuntimeValue {
+	fn input_legnth(&mut self) -> RuntimeValue {
 		RuntimeValue::I32(self.args.len() as i32)
 	}
 
@@ -472,9 +487,61 @@ impl<'a> Runtime<'a> {
 		self.return_u256_ptr(args.nth(0)?, gas_limit)
 	}
 
+	pub fn address(&mut self, args: RuntimeArgs) -> Result<()> {
+		let address = self.context.address;
+		self.return_address_ptr(args.nth(0)?, address)
+	}
+
+	pub fn sender(&mut self, args: RuntimeArgs) -> Result<()> {
+		let sender = self.context.sender;
+		self.return_address_ptr(args.nth(0)?, sender)
+	}
+
+	pub fn origin(&mut self, args: RuntimeArgs) -> Result<()> {
+		let origin = self.context.origin;
+		self.return_address_ptr(args.nth(0)?, origin)
+	}
+
 	pub fn timestamp(&mut self) -> Result<RuntimeValue> {
 		let timestamp = self.ext.env_info().timestamp;
 		Ok(RuntimeValue::from(timestamp))
+	}
+
+	pub fn elog(&mut self, args: RuntimeArgs) -> Result<()>
+	{
+		// signature is:
+		// pub fn elog(topic_ptr: *const u8, topic_count: u32, data_ptr: *const u8, data_len: u32);
+		let topic_ptr: u32 = args.nth(0)?;
+		let topic_count: u32 = args.nth(1)?;
+		let data_ptr: u32 = args.nth(2)?;
+		let data_len: u32 = args.nth(3)?;
+
+		if topic_count > 4 {
+			return Err(Error::Log.into());
+		}
+
+		self.overflow_charge(|schedule|
+			{
+				let topics_gas = schedule.log_gas as u64 + schedule.log_topic_gas as u64 * topic_count as u64;
+				(schedule.log_data_gas as u64)
+					.checked_mul(schedule.log_data_gas as u64)
+					.and_then(|data_gas| data_gas.checked_add(topics_gas))
+			}
+		)?;
+
+		let mut topics: Vec<H256> = Vec::with_capacity(topic_count as usize);
+		topics.resize(topic_count as usize, H256::zero());
+		for i in 0..topic_count {
+			let offset = i.checked_mul(32).ok_or(Error::MemoryAccessViolation)?
+				.checked_add(topic_ptr).ok_or(Error::MemoryAccessViolation)?;
+
+			*topics.get_mut(i as usize)
+				.expect("topics is resized to `topic_count`, i is in 0..topic count iterator, get_mut uses i as an indexer, get_mut cannot fail; qed")
+				= H256::from(&self.memory.get(offset, 32)?[..]);
+		}
+		self.ext.log(topics, &self.memory.get(data_ptr, data_len as usize)?).map_err(|_| Error::Log)?;
+
+		Ok(())
 	}
 }
 
@@ -506,7 +573,7 @@ mod ext_impl {
 				STORAGE_READ_FUNC => void!(self.storage_read(args)),
 				RET_FUNC => void!(self.ret(args)),
 				GAS_FUNC => void!(self.gas(args)),
-				INPUT_LENGTH_FUNC => cast!(self.input_legnth(args)),
+				INPUT_LENGTH_FUNC => cast!(self.input_legnth()),
 				FETCH_INPUT_FUNC => void!(self.fetch_input(args)),
 				PANIC_FUNC => void!(self.panic(args)),
 				DEBUG_FUNC => void!(self.debug(args)),
@@ -522,6 +589,10 @@ mod ext_impl {
 				DIFFICULTY_FUNC => void!(self.difficulty(args)),
 				GASLIMIT_FUNC => void!(self.gaslimit(args)),
 				TIMESTAMP_FUNC => some!(self.timestamp()),
+				ADDRESS_FUNC => void!(self.address(args)),
+				SENDER_FUNC => void!(self.sender(args)),
+				ORIGIN_FUNC => void!(self.origin(args)),
+				ELOG_FUNC => void!(self.elog(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}

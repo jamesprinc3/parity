@@ -33,8 +33,6 @@ mod env;
 mod panic_payload;
 mod parser;
 
-use parity_wasm::elements;
-
 use vm::{GasLeft, ReturnData, ActionParams};
 use wasmi::Error as InterpreterError;
 

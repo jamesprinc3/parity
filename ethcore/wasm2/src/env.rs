@@ -23,6 +23,10 @@ pub mod ids {
 	pub const DIFFICULTY_FUNC: usize = 150;
 	pub const GASLIMIT_FUNC: usize = 160;
 	pub const TIMESTAMP_FUNC: usize = 170;
+	pub const ADDRESS_FUNC: usize = 180;
+	pub const SENDER_FUNC: usize = 190;
+	pub const ORIGIN_FUNC: usize = 200;
+	pub const ELOG_FUNC: usize = 210;
 
 	pub const PANIC_FUNC: usize = 1000;
 	pub const DEBUG_FUNC: usize = 1010;
@@ -134,6 +138,26 @@ pub mod signatures {
 		Some(I64),
 	);
 
+	pub const ADDRESS: StaticSignature = StaticSignature(
+		&[I32],
+		None,
+	);
+
+	pub const SENDER: StaticSignature = StaticSignature(
+		&[I32],
+		None,
+	);
+
+	pub const ORIGIN: StaticSignature = StaticSignature(
+		&[I32],
+		None,
+	);
+
+	pub const ELOG: StaticSignature = StaticSignature(
+		&[I32, I32, I32, I32],
+		None,
+	);
+
 	impl Into<wasmi::Signature> for StaticSignature {
 		fn into(self) -> wasmi::Signature {
 			wasmi::Signature::new(self.0, self.1)
@@ -174,7 +198,8 @@ impl ImportResolver {
 }
 
 impl wasmi::ModuleImportResolver for ImportResolver {
-	fn resolve_func(&self, field_name: &str, signature: &Signature) -> Result<FuncRef, Error> {
+	// todo: check against `_signature` ?
+	fn resolve_func(&self, field_name: &str, _signature: &Signature) -> Result<FuncRef, Error> {
 		let func_ref = match field_name {
 			"storage_read" => host(signatures::STORAGE_READ, ids::STORAGE_READ_FUNC),
 			"storage_write" => host(signatures::STORAGE_WRITE, ids::STORAGE_WRITE_FUNC),
@@ -196,6 +221,10 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 			"difficulty" => host(signatures::DIFFICULTY, ids::DIFFICULTY_FUNC),
 			"gaslimit" => host(signatures::GASLIMIT, ids::GASLIMIT_FUNC),
 			"timestamp" => host(signatures::TIMESTAMP, ids::TIMESTAMP_FUNC),
+			"address" => host(signatures::ADDRESS, ids::ADDRESS_FUNC),
+			"sender" => host(signatures::SENDER, ids::SENDER_FUNC),
+			"origin" => host(signatures::ORIGIN, ids::ORIGIN_FUNC),
+			"elog" => host(signatures::ELOG, ids::ELOG_FUNC),
 			_ => {
 				return Err(wasmi::Error::Instantiation(
 					format!("Export {} not found", field_name),

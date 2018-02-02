@@ -86,7 +86,7 @@ fn empty() {
 		test_finalize(interpreter.exec(params, &mut ext)).unwrap()
 	};
 
-	assert_eq!(gas_left, U256::from(96_678));
+	assert_eq!(gas_left, U256::from(99996));
 }
 
 // This test checks if the contract deserializes payload header properly.
@@ -138,7 +138,7 @@ fn logger() {
 		U256::from(1_000_000_000),
 		"Logger sets 0x04 key to the trasferred value"
 	);
-	assert_eq!(gas_left, U256::from(15_860));
+	assert_eq!(gas_left, U256::from(17_638));
 }
 
 // This test checks if the contract can allocate memory and pass pointer to the result stream properly.
@@ -173,7 +173,7 @@ fn identity() {
 		sender,
 		"Idenity test contract does not return the sender passed"
 	);
-	assert_eq!(gas_left, U256::from(96_540));
+	assert_eq!(gas_left, U256::from(99_852));
 }
 
 // Dispersion test sends byte array and expect the contract to 'disperse' the original elements with
@@ -465,7 +465,7 @@ fn realloc() {
 		}
 	};
 	assert_eq!(result, vec![0u8; 2]);
-	assert_eq!(gas_left, U256::from(96_445));
+	assert_eq!(gas_left, U256::from(97_228));
 }
 
 // Tests that contract's ability to read from a storage
@@ -784,5 +784,5 @@ fn events() {
 	assert_eq!(&log_entry.data, b"gnihtemos");
 
 	assert_eq!(&result, b"gnihtemos");
-	assert_eq!(gas_left, U256::from(79_206));
+	assert_eq!(gas_left, U256::from(64_231));
 }
