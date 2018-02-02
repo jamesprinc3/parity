@@ -723,7 +723,7 @@ fn externs() {
 		"Gas limit requested and returned does not match"
 	);
 
-	assert_eq!(gas_left, U256::from(95_321));
+	assert_eq!(gas_left, U256::from(91_259));
 }
 
 #[test]

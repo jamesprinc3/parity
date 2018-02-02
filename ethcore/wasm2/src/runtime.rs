@@ -444,6 +444,38 @@ impl<'a> Runtime<'a> {
 		// We send trap to interpreter so it should abort further execution
 		Err(Error::Suicide.into())
 	}
+
+	pub fn blockhash(&mut self, args: RuntimeArgs) -> Result<()> {
+		self.charge(|schedule| schedule.blockhash_gas as u64)?;
+		let hash = self.ext.blockhash(&U256::from(args.nth::<u64>(0)?));
+		self.memory.set(args.nth(1)?, &*hash)?;
+
+		Ok(())
+	}
+
+	pub fn blocknumber(&mut self) -> Result<RuntimeValue> {
+		Ok(RuntimeValue::from(self.ext.env_info().number))
+	}
+
+	pub fn coinbase(&mut self, args: RuntimeArgs) -> Result<()> {
+		let coinbase = self.ext.env_info().author;
+		self.return_address_ptr(args.nth(0)?, coinbase)
+	}
+
+	pub fn difficulty(&mut self, args: RuntimeArgs) -> Result<()> {
+		let difficulty = self.ext.env_info().difficulty;
+		self.return_u256_ptr(args.nth(0)?, difficulty)
+	}
+
+	pub fn gaslimit(&mut self, args: RuntimeArgs) -> Result<()> {
+		let gas_limit = self.ext.env_info().gas_limit;
+		self.return_u256_ptr(args.nth(0)?, gas_limit)
+	}
+
+	pub fn timestamp(&mut self) -> Result<RuntimeValue> {
+		let timestamp = self.ext.env_info().timestamp;
+		Ok(RuntimeValue::from(timestamp))
+	}
 }
 
 mod ext_impl {
@@ -484,6 +516,12 @@ mod ext_impl {
 				VALUE_FUNC => void!(self.value(args)),
 				CREATE_FUNC => some!(self.create(args)),
 				SUICIDE_FUNC => void!(self.suicide(args)),
+				BLOCKHASH_FUNC => void!(self.blockhash(args)),
+				BLOCKNUMBER_FUNC => some!(self.blocknumber()),
+				COINBASE_FUNC => void!(self.coinbase(args)),
+				DIFFICULTY_FUNC => void!(self.difficulty(args)),
+				GASLIMIT_FUNC => void!(self.gaslimit(args)),
+				TIMESTAMP_FUNC => some!(self.timestamp()),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}
