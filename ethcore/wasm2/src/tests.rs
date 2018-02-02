@@ -207,7 +207,7 @@ fn dispersion() {
 		result,
 		vec![0u8, 0, 125, 11, 197, 7, 255, 8, 19, 0]
 	);
-	assert_eq!(gas_left, U256::from(96_315));
+	assert_eq!(gas_left, U256::from(96_215));
 }
 
 #[test]
@@ -523,124 +523,6 @@ fn keccak() {
 }
 
 // memcmp test.
-#[test]
-fn memcmp() {
-	::ethcore_logger::init_log();
-
-	let (gas_left, result) = reqrep_test! {
-		"memcmp.wasm",
-		vec![1u8, 1, 1]
-	}.expect("Interpreter to execute without any errors");
-
-	assert_eq!(0i32, LittleEndian::read_i32(&result));
-	assert_eq!(gas_left, U256::from(96610));
-
-	let (gas_left, result) = reqrep_test! {
-		"memcmp.wasm",
-		vec![1u8, 1, 3, 1]
-	}.expect("Interpreter to execute without any errors");
-
-	assert_eq!(2i32, LittleEndian::read_i32(&result));
-	assert_eq!(gas_left, U256::from(96610));
-
-	let (gas_left, result) = reqrep_test! {
-		"memcmp.wasm",
-		vec![1u8, 1, 0]
-	}.expect("Interpreter to execute without any errors");
-
-	assert_eq!(-1i32, LittleEndian::read_i32(&result));
-	assert_eq!(gas_left, U256::from(96610));
-}
-
-// memcpy test.
-#[test]
-fn memcpy() {
-	::ethcore_logger::init_log();
-	let code = load_sample!("mem.wasm");
-
-	let mut test_payload = Vec::with_capacity(8192);
-	for i in 0..8192 {
-		test_payload.push((i % 255) as u8);
-	}
-	let mut data = vec![0u8];
-	data.extend(&test_payload);
-
-	let mut params = ActionParams::default();
-	params.gas = U256::from(100_000);
-	params.code = Some(Arc::new(code));
-	params.data = Some(data);
-	let mut ext = FakeExt::new();
-
-	let (gas_left, result) = {
-		let mut interpreter = wasm_interpreter();
-		let result = interpreter.exec(params, &mut ext).expect("Interpreter to execute without any errors");
-		match result {
-			GasLeft::Known(_) => { panic!("mem should return payload"); },
-			GasLeft::NeedsReturn { gas_left: gas, data: result, apply_state: _apply } => (gas, result.to_vec()),
-		}
-	};
-
-	assert_eq!(result, test_payload);
-	assert_eq!(gas_left, U256::from(71_940));
-}
-
-// memmove test.
-#[test]
-fn memmove() {
-	::ethcore_logger::init_log();
-	let code = load_sample!("mem.wasm");
-
-	let mut test_payload = Vec::with_capacity(8192);
-	for i in 0..8192 {
-		test_payload.push((i % 255) as u8);
-	}
-	let mut data = vec![1u8];
-	data.extend(&test_payload);
-
-	let mut params = ActionParams::default();
-	params.gas = U256::from(100_000);
-	params.code = Some(Arc::new(code));
-	params.data = Some(data);
-	let mut ext = FakeExt::new();
-
-	let (gas_left, result) = {
-		let mut interpreter = wasm_interpreter();
-		let result = interpreter.exec(params, &mut ext).expect("Interpreter to execute without any errors");
-		match result {
-			GasLeft::Known(_) => { panic!("mem should return payload"); },
-			GasLeft::NeedsReturn { gas_left: gas, data: result, apply_state: _apply } => (gas, result.to_vec()),
-		}
-	};
-
-	assert_eq!(result, test_payload);
-	assert_eq!(gas_left, U256::from(71_940));
-}
-
-// memset test
-#[test]
-fn memset() {
-	::ethcore_logger::init_log();
-	let code = load_sample!("mem.wasm");
-
-	let mut params = ActionParams::default();
-	params.gas = U256::from(100_000);
-	params.code = Some(Arc::new(code));
-	params.data = Some(vec![2u8,  228u8]);
-	let mut ext = FakeExt::new();
-
-	let (gas_left, result) = {
-		let mut interpreter = wasm_interpreter();
-		let result = interpreter.exec(params, &mut ext).expect("Interpreter to execute without any errors");
-		match result {
-			GasLeft::Known(_) => { panic!("mem should return payload"); },
-			GasLeft::NeedsReturn { gas_left: gas, data: result, apply_state: _apply } => (gas, result.to_vec()),
-		}
-	};
-
-	assert_eq!(result, vec![228u8; 8192]);
-	assert_eq!(gas_left, U256::from(71_921));
-}
-
 // math_* tests check the ability of wasm contract to perform big integer operations
 // - addition
 // - multiplication
