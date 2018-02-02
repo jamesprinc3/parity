@@ -349,7 +349,7 @@ fn call_msg() {
 		}
 	));
 
-	assert_eq!(gas_left, U256::from(95_699));
+	assert_eq!(gas_left, U256::from(95_053));
 }
 
 #[test]

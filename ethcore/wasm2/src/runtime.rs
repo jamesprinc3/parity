@@ -1,5 +1,5 @@
 use ethereum_types::{U256, H256, Address};
-use vm;
+use vm::{self, CallType};
 use wasmi::{self, MemoryRef, RuntimeArgs, RuntimeValue, Error as InterpreterError};
 use super::panic_payload;
 
@@ -119,6 +119,20 @@ impl<'a> Runtime<'a> {
 		Ok(H256::from(&buf[..]))
 	}
 
+	fn address_at(&self, ptr: u32) -> Result<Address> {
+		let mut buf = [0u8; 20];
+		self.memory.get_into(ptr, &mut buf[..])?;
+
+		Ok(Address::from(&buf[..]))
+	}
+
+	fn u256_at(&self, ptr: u32) -> Result<U256> {
+		let mut buf = [0u8; 32];
+		self.memory.get_into(ptr, &mut buf[..])?;
+
+		Ok(U256::from_big_endian(&buf[..]))
+	}
+
 	fn charge_gas(&mut self, amount: u64) -> bool {
 		let prev = self.gas_counter;
 		if prev + amount > self.gas_limit {
@@ -232,6 +246,102 @@ impl<'a> Runtime<'a> {
 
 		Err(Error::Panic(msg).into())
 	}
+
+	fn do_call(
+		&mut self,
+		use_val: bool,
+		call_type: CallType,
+		args: RuntimeArgs,
+	)
+		-> Result<RuntimeValue>
+	{
+		let gas: u64 = args.nth(0)?;
+		let address = self.address_at(args.nth(1)?)?;
+
+		let vofs = if use_val { 1 } else { 0 };
+		let val = if use_val { Some(self.u256_at(args.nth(2)?)?) } else { None };
+		let input_ptr: u32 = args.nth(2 + vofs)?;
+		let input_len: u32 = args.nth(3 + vofs)?;
+		let result_ptr: u32 = args.nth(4 + vofs)?;
+		let result_alloc_len: u32 = args.nth(5 + vofs)?;
+
+		trace!(target: "wasm", "runtime: CALL({:?})", call_type);
+		trace!(target: "wasm", "    result_len: {:?}", result_alloc_len);
+		trace!(target: "wasm", "    result_ptr: {:?}", result_ptr);
+		trace!(target: "wasm", "     input_len: {:?}", input_len);
+		trace!(target: "wasm", "     input_ptr: {:?}", input_ptr);
+		trace!(target: "wasm", "           val: {:?}", val);
+		trace!(target: "wasm", "       address: {:?}", address);
+		trace!(target: "wasm", "           gas: {:?}", gas);
+
+		if let Some(ref val) = val {
+			let address_balance = self.ext.balance(&self.context.address)
+				.map_err(|_| Error::BalanceQueryError)?;
+
+			if &address_balance < val {
+				trace!(target: "wasm", "runtime: call failed due to balance check");
+				return Ok((-1i32).into());
+			}
+		}
+
+		self.charge(|schedule| schedule.call_gas as u64)?;
+
+		let mut result = Vec::with_capacity(result_alloc_len as usize);
+		result.resize(result_alloc_len as usize, 0);
+
+		// todo: optimize to use memory views once it's in
+		let payload = self.memory.get(input_ptr, input_len as usize)?;
+
+		self.charge(|_| gas.into())?;
+
+		let call_result = self.ext.call(
+			&gas.into(),
+			match call_type { CallType::DelegateCall => &self.context.sender, _ => &self.context.address },
+			match call_type { CallType::Call | CallType::StaticCall => &address, _ => &self.context.address },
+			val,
+			&payload,
+			&address,
+			&mut result[..],
+			call_type,
+		);
+
+		match call_result {
+			vm::MessageCallResult::Success(gas_left, _) => {
+				// cannot overflow, before making call gas_counter was incremented with gas, and gas_left < gas
+				self.gas_counter = self.gas_counter - gas_left.low_u64();
+
+				self.memory.set(result_ptr, &result)?;
+				Ok(0i32.into())
+			},
+			vm::MessageCallResult::Reverted(gas_left, _) => {
+				// cannot overflow, before making call gas_counter was incremented with gas, and gas_left < gas
+				self.gas_counter = self.gas_counter - gas_left.low_u64();
+
+				self.memory.set(result_ptr, &result)?;
+				Ok((-1i32).into())
+			},
+			vm::MessageCallResult::Failed  => {
+				Ok((-1i32).into())
+			}
+		}
+	}
+
+	fn ccall(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
+		self.do_call(true, CallType::Call, args)
+	}
+
+	fn debug(&mut self, args: RuntimeArgs) -> Result<()>
+	{
+		let msg_ptr: u32 = args.nth(0)?;
+		let msg_len: u32 = args.nth(1)?;
+
+		let msg = String::from_utf8(self.memory.get(msg_ptr, msg_len as usize)?)
+			.map_err(|_| Error::BadUtf8)?;
+
+		trace!(target: "wasm", "Contract debug message: {}", msg);
+
+		Ok(())
+	}
 }
 
 mod ext_impl {
@@ -264,6 +374,8 @@ mod ext_impl {
 				INPUT_LENGTH_FUNC => cast!(self.input_legnth(args)),
 				FETCH_INPUT_FUNC => void!(self.fetch_input(args)),
 				PANIC_FUNC => void!(self.panic(args)),
+				DEBUG_FUNC => void!(self.debug(args)),
+				CCALL_FUNC => some!(self.ccall(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}

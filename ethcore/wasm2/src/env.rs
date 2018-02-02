@@ -10,7 +10,12 @@ pub mod ids {
 	pub const GAS_FUNC: usize = 30;
 	pub const FETCH_INPUT_FUNC: usize = 40;
 	pub const INPUT_LENGTH_FUNC: usize = 50;
-	pub const PANIC_FUNC: usize = 100;
+	pub const CCALL_FUNC: usize = 60;
+	pub const SCALL_FUNC: usize = 70;
+	pub const DCALL_FUNC: usize = 80;
+
+	pub const PANIC_FUNC: usize = 1000;
+	pub const DEBUG_FUNC: usize = 1010;
 }
 
 pub mod signatures {
@@ -44,7 +49,17 @@ pub mod signatures {
 		Some(I32),
 	);
 
+	pub const CCALL: StaticSignature = StaticSignature(
+		&[I64, I32, I32, I32, I32, I32, I32],
+		Some(I32),
+	);
+
 	pub const PANIC: StaticSignature = StaticSignature(
+		&[I32, I32],
+		None,
+	);
+
+	pub const DEBUG: StaticSignature = StaticSignature(
 		&[I32, I32],
 		None,
 	);
@@ -97,6 +112,8 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 			"input_length" => host(signatures::INPUT_LENGTH, ids::INPUT_LENGTH_FUNC),
 			"fetch_input" => host(signatures::FETCH_INPUT, ids::FETCH_INPUT_FUNC),
 			"panic" => host(signatures::PANIC, ids::PANIC_FUNC),
+			"debug" => host(signatures::DEBUG, ids::DEBUG_FUNC),
+			"ccall" => host(signatures::CCALL, ids::CCALL_FUNC),
 			_ => {
 				return Err(wasmi::Error::Instantiation(
 					format!("Export {} not found", field_name),
