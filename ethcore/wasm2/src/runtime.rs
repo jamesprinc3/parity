@@ -171,6 +171,20 @@ impl<'a> Runtime<'a> {
 		Ok(())
 	}
 
+	/// Read from the storage to wasm memory
+	pub fn storage_write(&mut self, args: RuntimeArgs) -> Result<()>
+	{
+		let key = self.h256_at(args.nth(0)?)?;
+		let val_ptr: u32 = args.nth(1)?;
+
+		self.charge(|schedule| schedule.sstore_set_gas as u64)?;
+
+		let val = self.h256_at(val_ptr)?;
+		self.ext.set_storage(key, val).map_err(|_| Error::StorageUpdateError)?;
+
+		Ok(())
+	}
+
 	pub fn schedule(&self) -> &vm::Schedule {
 		self.ext.schedule()
 	}
@@ -437,6 +451,7 @@ mod ext_impl {
 			args: RuntimeArgs,
 		) -> Result<Option<RuntimeValue>, Error> {
 			match index {
+				STORAGE_WRITE_FUNC => void!(self.storage_write(args)),
 				STORAGE_READ_FUNC => void!(self.storage_read(args)),
 				RET_FUNC => void!(self.ret(args)),
 				GAS_FUNC => void!(self.gas(args)),

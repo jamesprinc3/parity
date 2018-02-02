@@ -5,6 +5,7 @@ use wasmi::{
 };
 
 pub mod ids {
+	pub const STORAGE_WRITE_FUNC: usize = 0;
 	pub const STORAGE_READ_FUNC: usize = 10;
 	pub const RET_FUNC: usize = 20;
 	pub const GAS_FUNC: usize = 30;
@@ -27,6 +28,11 @@ pub mod signatures {
 	pub struct StaticSignature(pub &'static [ValueType], pub Option<ValueType>);
 
 	pub const STORAGE_READ: StaticSignature = StaticSignature(
+		&[I32, I32],
+		None,
+	);
+
+	pub const STORAGE_WRITE: StaticSignature = StaticSignature(
 		&[I32, I32],
 		None,
 	);
@@ -129,6 +135,7 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 	fn resolve_func(&self, field_name: &str, signature: &Signature) -> Result<FuncRef, Error> {
 		let func_ref = match field_name {
 			"storage_read" => host(signatures::STORAGE_READ, ids::STORAGE_READ_FUNC),
+			"storage_write" => host(signatures::STORAGE_WRITE, ids::STORAGE_WRITE_FUNC),
 			"ret" => host(signatures::RET, ids::RET_FUNC),
 			"gas" => host(signatures::GAS, ids::GAS_FUNC),
 			"input_length" => host(signatures::INPUT_LENGTH, ids::INPUT_LENGTH_FUNC),
