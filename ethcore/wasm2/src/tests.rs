@@ -667,7 +667,7 @@ fn math_add() {
 		U256::from_dec_str("1888888888888888888888888888887").unwrap(),
 		(&result[..]).into()
 	);
-	assert_eq!(gas_left, U256::from(95_384));
+	assert_eq!(gas_left, U256::from(95_819));
 }
 
 // multiplication
@@ -689,7 +689,7 @@ fn math_mul() {
 		U256::from_dec_str("888888888888888888888888888887111111111111111111111111111112").unwrap(),
 		(&result[..]).into()
 	);
-	assert_eq!(gas_left, U256::from(94_374));
+	assert_eq!(gas_left, U256::from(94_447));
 }
 
 // subtraction
@@ -711,7 +711,7 @@ fn math_sub() {
 		U256::from_dec_str("111111111111111111111111111111").unwrap(),
 		(&result[..]).into()
 	);
-	assert_eq!(gas_left, U256::from(95_372));
+	assert_eq!(gas_left, U256::from(95_852));
 }
 
 // subtraction with overflow
@@ -753,7 +753,7 @@ fn math_div() {
 		U256::from_dec_str("1125000").unwrap(),
 		(&result[..]).into()
 	);
-	assert_eq!(gas_left, U256::from(88_356));
+	assert_eq!(gas_left, U256::from(87_269));
 }
 
 // This test checks the ability of wasm contract to invoke

@@ -263,10 +263,6 @@ mod ext_impl {
 				GAS_FUNC => void!(self.gas(args)),
 				INPUT_LENGTH_FUNC => cast!(self.input_legnth(args)),
 				FETCH_INPUT_FUNC => void!(self.fetch_input(args)),
-				MEMCPY_FUNC => some!(self.memcpy(args)),
-				MEMCMP_FUNC => some!(self.memcmp(args)),
-				MEMSET_FUNC => some!(self.memset(args)),
-				MEMMOVE_FUNC => some!(self.memmove(args)),
 				PANIC_FUNC => void!(self.panic(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
