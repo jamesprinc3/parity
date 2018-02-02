@@ -206,61 +206,6 @@ impl<'a> Runtime<'a> {
 		Ok(())
 	}
 
-	fn memcpy(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
-		let dst: u32 = args.nth(0)?;
-		let src: u32 = args.nth(1)?;
-		let len: u32 = args.nth(2)?;
-
-		self.charge(|schedule| schedule.wasm.mem_copy as u64 * len as u64)?;
-
-		self.memory.copy_nonoverlapping(src as usize, dst as usize, len as usize)?;
-
-		Ok(RuntimeValue::I32(dst as i32))
-	}
-
-	fn memcmp(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
-		use libc::{memcmp, c_void};
-
-		let cx: u32 = args.nth(0)?;
-		let ct: u32 = args.nth(1)?;
-		let len: u32 = args.nth(2)?;
-
-		self.charge(|schedule| schedule.wasm.mem_cmp as u64 * len as u64)?;
-
-		let ct = self.memory.get(ct, len as usize)?;
-		let cx = self.memory.get(cx, len as usize)?;
-
-		let result = unsafe {
-			memcmp(cx.as_ptr() as *const c_void, ct.as_ptr() as *const c_void, len as usize)
-		};
-
-		Ok(RuntimeValue::I32(result))
-	}
-
-	fn memset(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
-		let dst: u32 = args.nth(0)?;
-		let c: u32 = args.nth(1)?;
-		let len: u32 = args.nth(2)?;
-
-		self.charge(|schedule| schedule.wasm.mem_set as u64 * len as u64)?;
-
-		self.memory.clear(dst as usize, c as u8, len as usize)?;
-
-		Ok(RuntimeValue::I32(dst as i32))
-	}
-
-	fn memmove(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
-		let dst: u32 = args.nth(0)?;
-		let src: u32 = args.nth(1)?;
-		let len: u32 = args.nth(2)?;
-
-		self.charge(|schedule| schedule.wasm.mem_move as u64 * len as u64)?;
-
-		self.memory.copy(src as usize, dst as usize, len as usize)?;
-
-		Ok(RuntimeValue::I32(dst as i32))
-	}
-
 	fn panic(&mut self, args: RuntimeArgs) -> Result<()>
 	{
 		let payload_ptr: u32 = args.nth(0)?;
@@ -287,7 +232,6 @@ impl<'a> Runtime<'a> {
 
 		Err(Error::Panic(msg).into())
 	}
-
 }
 
 mod ext_impl {

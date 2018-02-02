@@ -10,10 +10,6 @@ pub mod ids {
 	pub const GAS_FUNC: usize = 30;
 	pub const FETCH_INPUT_FUNC: usize = 40;
 	pub const INPUT_LENGTH_FUNC: usize = 50;
-	pub const MEMCMP_FUNC: usize = 60;
-	pub const MEMCPY_FUNC: usize = 70;
-	pub const MEMSET_FUNC: usize = 80;
-	pub const MEMMOVE_FUNC: usize = 90;
 	pub const PANIC_FUNC: usize = 100;
 }
 
@@ -45,26 +41,6 @@ pub mod signatures {
 
 	pub const INPUT_LENGTH: StaticSignature = StaticSignature(
 		&[],
-		Some(I32),
-	);
-
-	pub const MEMCMP: StaticSignature = StaticSignature(
-		&[I32, I32, I32],
-		Some(I32),
-	);
-
-	pub const MEMCPY: StaticSignature = StaticSignature(
-		&[I32, I32, I32],
-		Some(I32),
-	);
-
-	pub const MEMSET: StaticSignature = StaticSignature(
-		&[I32, I32, I32],
-		Some(I32),
-	);
-
-	pub const MEMMOVE: StaticSignature = StaticSignature(
-		&[I32, I32, I32],
 		Some(I32),
 	);
 
@@ -120,10 +96,6 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 			"gas" => host(signatures::GAS, ids::GAS_FUNC),
 			"input_length" => host(signatures::INPUT_LENGTH, ids::INPUT_LENGTH_FUNC),
 			"fetch_input" => host(signatures::FETCH_INPUT, ids::FETCH_INPUT_FUNC),
-			"ext_memcmp" => host(signatures::MEMCMP, ids::MEMCMP_FUNC),
-			"ext_memcpy" => host(signatures::MEMCPY, ids::MEMCPY_FUNC),
-			"ext_memmove" => host(signatures::MEMMOVE, ids::MEMMOVE_FUNC),
-			"ext_memset" => host(signatures::MEMSET, ids::MEMSET_FUNC),
 			"panic" => host(signatures::PANIC, ids::PANIC_FUNC),
 			_ => {
 				return Err(wasmi::Error::Instantiation(
