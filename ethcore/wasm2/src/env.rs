@@ -54,6 +54,16 @@ pub mod signatures {
 		Some(I32),
 	);
 
+	pub const DCALL: StaticSignature = StaticSignature(
+		&[I64, I32, I32, I32, I32, I32],
+		Some(I32),
+	);
+
+	pub const SCALL: StaticSignature = StaticSignature(
+		&[I64, I32, I32, I32, I32, I32],
+		Some(I32),
+	);
+
 	pub const PANIC: StaticSignature = StaticSignature(
 		&[I32, I32],
 		None,
@@ -114,6 +124,8 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 			"panic" => host(signatures::PANIC, ids::PANIC_FUNC),
 			"debug" => host(signatures::DEBUG, ids::DEBUG_FUNC),
 			"ccall" => host(signatures::CCALL, ids::CCALL_FUNC),
+			"dcall" => host(signatures::DCALL, ids::DCALL_FUNC),
+			"scall" => host(signatures::SCALL, ids::SCALL_FUNC),
 			_ => {
 				return Err(wasmi::Error::Instantiation(
 					format!("Export {} not found", field_name),

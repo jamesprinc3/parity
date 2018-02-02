@@ -394,7 +394,7 @@ fn call_code() {
 	// siphash result
 	let res = LittleEndian::read_u32(&result[..]);
 	assert_eq!(res, 4198595614);
-	assert_eq!(gas_left, U256::from(90_550));
+	assert_eq!(gas_left, U256::from(92_039));
 }
 
 #[test]
@@ -442,7 +442,7 @@ fn call_static() {
 	let res = LittleEndian::read_u32(&result[..]);
 	assert_eq!(res, 317632590);
 
-	assert_eq!(gas_left, U256::from(90_550));
+	assert_eq!(gas_left, U256::from(92_039));
 }
 
 // Realloc test

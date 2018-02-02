@@ -330,6 +330,14 @@ impl<'a> Runtime<'a> {
 		self.do_call(true, CallType::Call, args)
 	}
 
+	fn dcall(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
+		self.do_call(false, CallType::DelegateCall, args)
+	}
+
+	fn scall(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
+		self.do_call(false, CallType::StaticCall, args)
+	}
+
 	fn debug(&mut self, args: RuntimeArgs) -> Result<()>
 	{
 		let msg_ptr: u32 = args.nth(0)?;
@@ -376,6 +384,8 @@ mod ext_impl {
 				PANIC_FUNC => void!(self.panic(args)),
 				DEBUG_FUNC => void!(self.debug(args)),
 				CCALL_FUNC => some!(self.ccall(args)),
+				DCALL_FUNC => some!(self.dcall(args)),
+				SCALL_FUNC => some!(self.scall(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}
