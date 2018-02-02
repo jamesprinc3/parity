@@ -16,6 +16,7 @@ pub mod ids {
 	pub const DCALL_FUNC: usize = 80;
 	pub const VALUE_FUNC: usize = 90;
 	pub const CREATE_FUNC: usize = 100;
+	pub const SUICIDE_FUNC: usize = 110;
 
 	pub const PANIC_FUNC: usize = 1000;
 	pub const DEBUG_FUNC: usize = 1010;
@@ -92,6 +93,11 @@ pub mod signatures {
 		Some(I32),
 	);
 
+	pub const SUICIDE: StaticSignature = StaticSignature(
+		&[I32],
+		None,
+	);
+
 	impl Into<wasmi::Signature> for StaticSignature {
 		fn into(self) -> wasmi::Signature {
 			wasmi::Signature::new(self.0, self.1)
@@ -147,6 +153,7 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 			"scall" => host(signatures::SCALL, ids::SCALL_FUNC),
 			"value" => host(signatures::VALUE, ids::VALUE_FUNC),
 			"create" => host(signatures::CREATE, ids::CREATE_FUNC),
+			"suicide" => host(signatures::SUICIDE, ids::SUICIDE_FUNC),
 			_ => {
 				return Err(wasmi::Error::Instantiation(
 					format!("Export {} not found", field_name),

@@ -27,8 +27,6 @@ extern crate wasm_utils;
 extern crate wasmi;
 
 mod runtime;
-// mod ptr;
-// mod result;
 #[cfg(test)]
 mod tests;
 mod env;
@@ -117,7 +115,31 @@ impl vm::Vm for WasmInterpreter {
 
 		let module_instance = module_instance.run_start(&mut runtime).map_err(Error)?;
 
-		module_instance.invoke_export("call", &[], &mut runtime).map_err(Error)?;
+		match module_instance.invoke_export("call", &[], &mut runtime) {
+			Ok(_) => { },
+			Err(InterpreterError::Host(boxed)) => {
+				match boxed.downcast_ref::<runtime::Error>() {
+					None => {
+						return Err(vm::Error::Wasm("Invalid user error used in interpreter".to_owned()));
+					}
+					Some(runtime_err) => {
+						match *runtime_err {
+							runtime::Error::Suicide => {
+								// Suicide uses trap to break execution
+							}
+							ref any_err => {
+								trace!(target: "wasm", "Error executing contract: {:?}", boxed);
+								return Err(vm::Error::from(Error::from(InterpreterError::Host(Box::new(any_err.clone())))));
+							}
+						}
+					}
+				}
+			},
+			Err(err) => {
+				trace!(target: "wasm", "Error executing contract: {:?}", err);
+				return Err(vm::Error::from(Error::from(err)))
+			}
+		}
 
 		if runtime.result().is_empty() {
 			trace!(target: "wasm", "Contract execution result is empty.");

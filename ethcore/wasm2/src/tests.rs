@@ -235,7 +235,7 @@ fn suicide_not() {
 		result,
 		vec![0u8]
 	);
-	assert_eq!(gas_left, U256::from(96_461));
+	assert_eq!(gas_left, U256::from(98_877));
 }
 
 #[test]
@@ -267,7 +267,7 @@ fn suicide() {
 	};
 
 	assert!(ext.suicides.contains(&refund));
-	assert_eq!(gas_left, U256::from(96_429));
+	assert_eq!(gas_left, U256::from(98_777));
 }
 
 #[test]

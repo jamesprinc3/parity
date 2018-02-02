@@ -425,6 +425,25 @@ impl<'a> Runtime<'a> {
 
 		Ok(())
 	}
+
+	/// Pass suicide to state runtime
+	pub fn suicide(&mut self, args: RuntimeArgs) -> Result<()>
+	{
+		let refund_address = self.address_at(args.nth(0)?)?;
+
+		if self.ext.exists(&refund_address).map_err(|_| Error::SuicideAbort)? {
+			trace!(target: "wasm", "Suicide: refund to existing address {}", refund_address);
+			self.charge(|schedule| schedule.suicide_gas as u64)?;
+		} else {
+			trace!(target: "wasm", "Suicide: refund to new address {}", refund_address);
+			self.charge(|schedule| schedule.suicide_to_new_account_cost as u64)?;
+		}
+
+		self.ext.suicide(&refund_address).map_err(|_| Error::SuicideAbort)?;
+
+		// We send trap to interpreter so it should abort further execution
+		Err(Error::Suicide.into())
+	}
 }
 
 mod ext_impl {
@@ -464,6 +483,7 @@ mod ext_impl {
 				SCALL_FUNC => some!(self.scall(args)),
 				VALUE_FUNC => void!(self.value(args)),
 				CREATE_FUNC => some!(self.create(args)),
+				SUICIDE_FUNC => void!(self.suicide(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}
