@@ -338,6 +338,67 @@ impl<'a> Runtime<'a> {
 		self.do_call(false, CallType::StaticCall, args)
 	}
 
+	fn return_address_ptr(&mut self, ptr: u32, val: Address) -> Result<()>
+	{
+		self.charge(|schedule| schedule.wasm.static_address as u64)?;
+		self.memory.set(ptr, &*val)?;
+		Ok(())
+	}
+
+	fn return_u256_ptr(&mut self, ptr: u32, val: U256) -> Result<()> {
+		let value: H256 = val.into();
+		self.charge(|schedule| schedule.wasm.static_u256 as u64)?;
+		self.memory.set(ptr, &*value)?;
+		Ok(())
+	}
+
+	pub fn value(&mut self, args: RuntimeArgs) -> Result<()> {
+		let val = self.context.value;
+		self.return_u256_ptr(args.nth(0)?, val)
+	}
+
+	pub fn create(&mut self, args: RuntimeArgs) -> Result<RuntimeValue>
+	{
+		//
+		// method signature:
+		//   fn create(endowment: *const u8, code_ptr: *const u8, code_len: u32, result_ptr: *mut u8) -> i32;
+		//
+		trace!(target: "wasm", "runtime: CREATE");
+		let endowment = self.u256_at(args.nth(0)?)?;
+		trace!(target: "wasm", "       val: {:?}", endowment);
+		let code_ptr: u32 = args.nth(1)?;
+		trace!(target: "wasm", "  code_ptr: {:?}", code_ptr);
+		let code_len: u32 = args.nth(2)?;
+		trace!(target: "wasm", "  code_len: {:?}", code_len);
+		let result_ptr: u32 = args.nth(3)?;
+		trace!(target: "wasm", "result_ptr: {:?}", result_ptr);
+
+		let code = self.memory.get(code_ptr, code_len as usize)?;
+
+		self.charge(|schedule| schedule.create_gas as u64)?;
+		self.charge(|schedule| schedule.create_data_gas as u64 * code.len() as u64)?;
+
+		let gas_left: U256 = self.gas_left()?.into();
+
+		match self.ext.create(&gas_left, &endowment, &code, vm::CreateContractAddress::FromSenderAndCodeHash) {
+			vm::ContractCreateResult::Created(address, gas_left) => {
+				self.memory.set(result_ptr, &*address)?;
+				self.gas_counter = self.gas_limit - gas_left.low_u64();
+				trace!(target: "wasm", "runtime: create contract success (@{:?})", address);
+				Ok(0i32.into())
+			},
+			vm::ContractCreateResult::Failed => {
+				trace!(target: "wasm", "runtime: create contract fail");
+				Ok((-1i32).into())
+			},
+			vm::ContractCreateResult::Reverted(gas_left, _) => {
+				trace!(target: "wasm", "runtime: create contract reverted");
+				self.gas_counter = self.gas_limit - gas_left.low_u64();
+				Ok((-1i32).into())
+			},
+		}
+	}
+
 	fn debug(&mut self, args: RuntimeArgs) -> Result<()>
 	{
 		let msg_ptr: u32 = args.nth(0)?;
@@ -386,6 +447,8 @@ mod ext_impl {
 				CCALL_FUNC => some!(self.ccall(args)),
 				DCALL_FUNC => some!(self.dcall(args)),
 				SCALL_FUNC => some!(self.scall(args)),
+				VALUE_FUNC => void!(self.value(args)),
+				CREATE_FUNC => some!(self.create(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}

@@ -297,7 +297,7 @@ fn create() {
 	assert!(ext.calls.contains(
 		&FakeCall {
 			call_type: FakeCallType::Create,
-			gas: U256::from(62_545),
+			gas: U256::from(64_068),
 			sender_address: None,
 			receive_address: None,
 			value: Some(1_000_000_000.into()),
@@ -305,7 +305,7 @@ fn create() {
 			code_address: None,
 		}
 	));
-	assert_eq!(gas_left, U256::from(62_538));
+	assert_eq!(gas_left, U256::from(64_031));
 }
 
 #[test]

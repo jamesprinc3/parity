@@ -13,6 +13,8 @@ pub mod ids {
 	pub const CCALL_FUNC: usize = 60;
 	pub const SCALL_FUNC: usize = 70;
 	pub const DCALL_FUNC: usize = 80;
+	pub const VALUE_FUNC: usize = 90;
+	pub const CREATE_FUNC: usize = 100;
 
 	pub const PANIC_FUNC: usize = 1000;
 	pub const DEBUG_FUNC: usize = 1010;
@@ -74,6 +76,16 @@ pub mod signatures {
 		None,
 	);
 
+	pub const VALUE: StaticSignature = StaticSignature(
+		&[I32],
+		None,
+	);
+
+	pub const CREATE: StaticSignature = StaticSignature(
+		&[I32, I32, I32, I32],
+		Some(I32),
+	);
+
 	impl Into<wasmi::Signature> for StaticSignature {
 		fn into(self) -> wasmi::Signature {
 			wasmi::Signature::new(self.0, self.1)
@@ -126,6 +138,8 @@ impl wasmi::ModuleImportResolver for ImportResolver {
 			"ccall" => host(signatures::CCALL, ids::CCALL_FUNC),
 			"dcall" => host(signatures::DCALL, ids::DCALL_FUNC),
 			"scall" => host(signatures::SCALL, ids::SCALL_FUNC),
+			"value" => host(signatures::VALUE, ids::VALUE_FUNC),
+			"create" => host(signatures::CREATE, ids::CREATE_FUNC),
 			_ => {
 				return Err(wasmi::Error::Instantiation(
 					format!("Export {} not found", field_name),
