@@ -519,7 +519,7 @@ fn keccak() {
 	};
 
 	assert_eq!(H256::from_slice(&result), H256::from("68371d7e884c168ae2022c82bd837d51837718a7f7dfb7aa3f753074a35e1d87"));
-	assert_eq!(gas_left, U256::from(81_067));
+	assert_eq!(gas_left, U256::from(70_217));
 }
 
 // memcmp test.
@@ -867,7 +867,7 @@ fn embedded_keccak() {
 	};
 
 	assert_eq!(H256::from_slice(&result), H256::from("68371d7e884c168ae2022c82bd837d51837718a7f7dfb7aa3f753074a35e1d87"));
-	assert_eq!(gas_left, U256::from(81_067));
+	assert_eq!(gas_left, U256::from(70_217));
 }
 
 /// This test checks the correctness of log extern

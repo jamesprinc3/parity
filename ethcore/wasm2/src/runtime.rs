@@ -237,6 +237,30 @@ impl<'a> Runtime<'a> {
 		Ok(RuntimeValue::I32(result))
 	}
 
+	fn memset(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
+		let dst: u32 = args.nth(0)?;
+		let c: u32 = args.nth(1)?;
+		let len: u32 = args.nth(2)?;
+
+		self.charge(|schedule| schedule.wasm.mem_set as u64 * len as u64)?;
+
+		self.memory.clear(dst as usize, c as u8, len as usize)?;
+
+		Ok(RuntimeValue::I32(dst as i32))
+	}
+
+	fn memmove(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
+		let dst: u32 = args.nth(0)?;
+		let src: u32 = args.nth(1)?;
+		let len: u32 = args.nth(2)?;
+
+		self.charge(|schedule| schedule.wasm.mem_move as u64 * len as u64)?;
+
+		self.memory.copy(src as usize, dst as usize, len as usize)?;
+
+		Ok(RuntimeValue::I32(dst as i32))
+	}
+
 	fn panic(&mut self, args: RuntimeArgs) -> Result<()>
 	{
 		let payload_ptr: u32 = args.nth(0)?;
@@ -297,6 +321,8 @@ mod ext_impl {
 				FETCH_INPUT_FUNC => void!(self.fetch_input(args)),
 				MEMCPY_FUNC => some!(self.memcpy(args)),
 				MEMCMP_FUNC => some!(self.memcmp(args)),
+				MEMSET_FUNC => some!(self.memset(args)),
+				MEMMOVE_FUNC => some!(self.memmove(args)),
 				PANIC_FUNC => void!(self.panic(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
