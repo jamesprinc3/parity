@@ -182,6 +182,8 @@ fn identity() {
 // This also tests byte-perfect memory allocation and in/out ptr lifecycle.
 #[test]
 fn dispersion() {
+	::ethcore_logger::init_log();
+
 	let code = load_sample!("dispersion.wasm");
 
 	let mut params = ActionParams::default();
@@ -201,12 +203,11 @@ fn dispersion() {
 		}
 	};
 
-
 	assert_eq!(
 		result,
 		vec![0u8, 0, 125, 11, 197, 7, 255, 8, 19, 0]
 	);
-	assert_eq!(gas_left, U256::from(96_116));
+	assert_eq!(gas_left, U256::from(96_315));
 }
 
 #[test]

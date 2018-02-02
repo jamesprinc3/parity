@@ -1,6 +1,7 @@
 use ethereum_types::{U256, H256, Address};
 use vm;
 use wasmi::{self, MemoryRef, RuntimeArgs, RuntimeValue, Error as InterpreterError};
+use super::panic_payload;
 
 pub struct RuntimeContext {
 	pub address: Address,
@@ -164,6 +165,8 @@ impl<'a> Runtime<'a> {
 		let ptr: u32 = args.nth(0)?;
 		let len: u32 = args.nth(1)?;
 
+		trace!(target: "wasm", "Contract ret: {} bytes @ {}", len, ptr);
+
 		self.result = self.memory.get(ptr, len as usize)?;
 
 		Ok(())
@@ -185,7 +188,6 @@ impl<'a> Runtime<'a> {
 
 	/// Report gas cost with the params passed in wasm stack
 	fn gas(&mut self, args: RuntimeArgs) -> Result<()> {
-		trace!(target: "wasm", "charge gas {}", args.nth::<u32>(0)?);
 		let amount: u32 = args.nth(0)?;
 		if self.charge_gas(amount as u64) {
 			Ok(())
@@ -193,6 +195,75 @@ impl<'a> Runtime<'a> {
 			Err(Error::GasLimit.into())
 		}
 	}
+
+	fn input_legnth(&mut self, args: RuntimeArgs) -> RuntimeValue {
+		RuntimeValue::I32(self.args.len() as i32)
+	}
+
+	fn fetch_input(&mut self, args: RuntimeArgs) -> Result<()> {
+		let ptr: u32 = args.nth(0)?;
+		self.memory.set(ptr, &self.args[..])?;
+		Ok(())
+	}
+
+	fn memcpy(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
+		let dst: u32 = args.nth(0)?;
+		let src: u32 = args.nth(1)?;
+		let len: u32 = args.nth(2)?;
+
+		self.charge(|schedule| schedule.wasm.mem_copy as u64 * len as u64)?;
+
+		self.memory.copy_nonoverlapping(src as usize, dst as usize, len as usize)?;
+
+		Ok(RuntimeValue::I32(dst as i32))
+	}
+
+	fn memcmp(&mut self, args: RuntimeArgs) -> Result<RuntimeValue> {
+		use libc::{memcmp, c_void};
+
+		let cx: u32 = args.nth(0)?;
+		let ct: u32 = args.nth(1)?;
+		let len: u32 = args.nth(2)?;
+
+		self.charge(|schedule| schedule.wasm.mem_cmp as u64 * len as u64)?;
+
+		let ct = self.memory.get(ct, len as usize)?;
+		let cx = self.memory.get(cx, len as usize)?;
+
+		let result = unsafe {
+			memcmp(cx.as_ptr() as *const c_void, ct.as_ptr() as *const c_void, len as usize)
+		};
+
+		Ok(RuntimeValue::I32(result))
+	}
+
+	fn panic(&mut self, args: RuntimeArgs) -> Result<()>
+	{
+		let payload_ptr: u32 = args.nth(0)?;
+		let payload_len: u32 = args.nth(1)?;
+
+		let raw_payload = self.memory.get(payload_ptr, payload_len as usize)?;
+		let payload = panic_payload::decode(&raw_payload);
+		let msg = format!(
+			"{msg}, {file}:{line}:{col}",
+			msg = payload
+				.msg
+				.as_ref()
+				.map(String::as_ref)
+				.unwrap_or("<msg was stripped>"),
+			file = payload
+				.file
+				.as_ref()
+				.map(String::as_ref)
+				.unwrap_or("<unknown>"),
+			line = payload.line.unwrap_or(0),
+			col = payload.col.unwrap_or(0)
+		);
+		trace!(target: "wasm", "Contract custom panic message: {}", msg);
+
+		Err(Error::Panic(msg).into())
+	}
+
 }
 
 mod ext_impl {
@@ -202,6 +273,14 @@ mod ext_impl {
 
 	macro_rules! void {
 		{ $e: expr } => { { $e?; Ok(None) } }
+	}
+
+	macro_rules! some {
+		{ $e: expr } => { { Ok(Some($e?)) } }
+	}
+
+	macro_rules! cast {
+		{ $e: expr } => { { Ok(Some($e)) } }
 	}
 
 	impl<'a> Externals for super::Runtime<'a> {
@@ -214,6 +293,11 @@ mod ext_impl {
 				STORAGE_READ_FUNC => void!(self.storage_read(args)),
 				RET_FUNC => void!(self.ret(args)),
 				GAS_FUNC => void!(self.gas(args)),
+				INPUT_LENGTH_FUNC => cast!(self.input_legnth(args)),
+				FETCH_INPUT_FUNC => void!(self.fetch_input(args)),
+				MEMCPY_FUNC => some!(self.memcpy(args)),
+				MEMCMP_FUNC => some!(self.memcmp(args)),
+				PANIC_FUNC => void!(self.panic(args)),
 				_ => panic!("env module doesn't provide function at index {}", index),
 			}
 		}

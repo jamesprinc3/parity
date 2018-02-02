@@ -32,7 +32,7 @@ mod runtime;
 #[cfg(test)]
 mod tests;
 mod env;
-// mod panic_payload;
+mod panic_payload;
 mod parser;
 
 use parity_wasm::elements;

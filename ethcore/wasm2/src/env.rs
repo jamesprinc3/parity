@@ -8,6 +8,11 @@ pub mod ids {
 	pub const STORAGE_READ_FUNC: usize = 10;
 	pub const RET_FUNC: usize = 20;
 	pub const GAS_FUNC: usize = 30;
+	pub const FETCH_INPUT_FUNC: usize = 40;
+	pub const INPUT_LENGTH_FUNC: usize = 50;
+	pub const MEMCMP_FUNC: usize = 60;
+	pub const MEMCPY_FUNC: usize = 70;
+	pub const PANIC_FUNC: usize = 80;
 }
 
 pub mod signatures {
@@ -18,17 +23,42 @@ pub mod signatures {
 
 	pub const STORAGE_READ: StaticSignature = StaticSignature(
 		&[I32, I32],
-		None
+		None,
 	);
 
 	pub const RET: StaticSignature = StaticSignature(
 		&[I32, I32],
-		None
+		None,
 	);
 
 	pub const GAS: StaticSignature = StaticSignature(
 		&[I32],
-		None
+		None,
+	);
+
+	pub const FETCH_INPUT: StaticSignature = StaticSignature(
+		&[I32],
+		None,
+	);
+
+	pub const INPUT_LENGTH: StaticSignature = StaticSignature(
+		&[],
+		Some(I32),
+	);
+
+	pub const MEMCMP: StaticSignature = StaticSignature(
+		&[I32, I32, I32],
+		Some(I32),
+	);
+
+	pub const MEMCPY: StaticSignature = StaticSignature(
+		&[I32, I32, I32],
+		Some(I32),
+	);
+
+	pub const PANIC: StaticSignature = StaticSignature(
+		&[I32, I32],
+		None,
 	);
 
 	impl Into<wasmi::Signature> for StaticSignature {
@@ -73,9 +103,14 @@ impl ImportResolver {
 impl wasmi::ModuleImportResolver for ImportResolver {
 	fn resolve_func(&self, field_name: &str, signature: &Signature) -> Result<FuncRef, Error> {
 		let func_ref = match field_name {
-			"storage_read" => { host(signatures::STORAGE_READ, ids::STORAGE_READ_FUNC) },
-			"ret" => { host(signatures::RET, ids::RET_FUNC) },
-			"gas" => { host(signatures::GAS, ids::GAS_FUNC) },
+			"storage_read" => host(signatures::STORAGE_READ, ids::STORAGE_READ_FUNC),
+			"ret" => host(signatures::RET, ids::RET_FUNC),
+			"gas" => host(signatures::GAS, ids::GAS_FUNC),
+			"input_length" => host(signatures::INPUT_LENGTH, ids::INPUT_LENGTH_FUNC),
+			"fetch_input" => host(signatures::FETCH_INPUT, ids::FETCH_INPUT_FUNC),
+			"ext_memcmp" => host(signatures::MEMCMP, ids::MEMCMP_FUNC),
+			"ext_memcpy" => host(signatures::MEMCPY, ids::MEMCPY_FUNC),
+			"panic" => host(signatures::PANIC, ids::PANIC_FUNC),
 			_ => {
 				return Err(wasmi::Error::Instantiation(
 					format!("Export {} not found", field_name),
